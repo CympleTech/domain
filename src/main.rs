@@ -15,6 +15,7 @@ use tokio::sync::{mpsc::Sender, RwLock};
 mod layer;
 mod models;
 mod rpc;
+mod storage;
 
 pub const DEFAULT_P2P_ADDR: &'static str = "0.0.0.0:7367"; // DEBUG CODE
 pub const DEFAULT_HTTP_ADDR: &'static str = "127.0.0.1:8003"; // DEBUG CODE
@@ -32,12 +33,12 @@ async fn main() {
 }
 
 pub async fn start(db_path: String) -> Result<()> {
-    //storage::init().await?;
-
     let db_path = PathBuf::from(db_path);
     if !db_path.exists() {
         tokio::fs::create_dir_all(&db_path).await?;
     }
+
+    storage::init(&db_path).await?;
 
     init_log(db_path.clone());
     info!("Core storage path {:?}", db_path);

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 use tdn::types::{
     group::GroupId,
@@ -9,7 +8,7 @@ use tdn_did::Proof;
 
 use domain_types::{LayerPeerEvent, LayerServerEvent, PeerEvent, ServerEvent, DOMAIN_ID};
 
-use crate::models::{Name, Request};
+use crate::models::User;
 
 /// Domain server to peer.
 #[inline]
@@ -27,7 +26,7 @@ pub(crate) fn add_server_layer(
 }
 
 pub(crate) struct Layer {
-    base: PathBuf,
+    pub base: PathBuf,
 }
 
 impl Layer {
@@ -48,20 +47,57 @@ impl Layer {
             }
             RecvType::Event(addr, bytes) => {
                 // server & client handle it.
-                let LayerPeerEvent(event, proof) = bincode::deserialize(&bytes)?;
+                let LayerPeerEvent(event, _proof) = bincode::deserialize(&bytes)?;
+
+                // TODO check proof. date if from fgid.
 
                 match event {
                     PeerEvent::Check => {
                         add_server_layer(&mut results, addr, ServerEvent::Status, fgid)?;
                         println!("------ DEBUG DOMAIN SERVICE IS OK");
                     }
-                    PeerEvent::Search(_name) => {}
-                    PeerEvent::Register(_name, _bio, _avatar) => {}
-                    PeerEvent::Update(_name, _bio, _avatar) => {}
+                    PeerEvent::Search(name) => {
+                        if let Ok(user) = User::get_by_name(&self.base, &name).await {
+                            add_server_layer(&mut results, addr, user.to_info(), fgid)?;
+                        } else {
+                            add_server_layer(&mut results, addr, ServerEvent::None(name), fgid)?;
+                        }
+                    }
+                    PeerEvent::Register(name, bio, avatar) => {
+                        let mut user = User::new(name.clone(), fgid, addr, bio, avatar);
+                        let is_ok = user.insert(&self.base).await.is_ok();
+                        add_server_layer(
+                            &mut results,
+                            addr,
+                            ServerEvent::Result(name, is_ok),
+                            fgid,
+                        )?;
+                    }
+                    PeerEvent::Update(name, bio, avatar) => {
+                        let user = User::get_by_name(&self.base, &name).await?;
+                        if user.gid == fgid {
+                            User::update(&user.id, &addr, &bio, &avatar, &self.base).await?;
+                        }
+                    }
+                    PeerEvent::Suspend(name) => {
+                        let user = User::get_by_name(&self.base, &name).await?;
+                        if user.gid == fgid {
+                            User::active(&user.id, false).await?;
+                        }
+                    }
+                    PeerEvent::Active(name) => {
+                        let user = User::get_by_name(&self.base, &name).await?;
+                        if user.gid == fgid {
+                            User::active(&user.id, true).await?;
+                        }
+                    }
+                    PeerEvent::Delete(name) => {
+                        let user = User::get_by_name(&self.base, &name).await?;
+                        if user.gid == fgid {
+                            User::delete(&user.id, &self.base).await?;
+                        }
+                    }
                     PeerEvent::Request(_name, _rname, _remark) => {}
-                    PeerEvent::Suspend(_name) => {}
-                    PeerEvent::Active(_name) => {}
-                    PeerEvent::Delete(_name) => {}
                 }
             }
             RecvType::Delivery(_t, _tid, _is_ok) => {
