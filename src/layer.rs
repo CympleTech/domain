@@ -9,6 +9,7 @@ use tdn_did::Proof;
 use domain_types::{LayerPeerEvent, LayerServerEvent, PeerEvent, ServerEvent, DOMAIN_ID};
 
 use crate::models::User;
+use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
 
 /// Domain server to peer.
 #[inline]
@@ -53,7 +54,12 @@ impl Layer {
 
                 match event {
                     PeerEvent::Check => {
-                        add_server_layer(&mut results, addr, ServerEvent::Status, fgid)?;
+                        let status = ServerEvent::Status(
+                            DEFAULT_PROVIDER_NAME.to_owned(),
+                            DEFAULT_PROVIDER_PROXY,
+                        );
+
+                        add_server_layer(&mut results, addr, status, fgid)?;
                         println!("------ DEBUG DOMAIN SERVICE IS OK");
                     }
                     PeerEvent::Search(name) => {

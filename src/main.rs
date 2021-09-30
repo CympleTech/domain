@@ -17,6 +17,9 @@ mod models;
 mod rpc;
 mod storage;
 
+pub const DEFAULT_PROVIDER_NAME: &'static str = "domain.esse";
+pub const DEFAULT_PROVIDER_PROXY: bool = true;
+
 pub const DEFAULT_P2P_ADDR: &'static str = "0.0.0.0:7367"; // DEBUG CODE
 pub const DEFAULT_HTTP_ADDR: &'static str = "127.0.0.1:8003"; // DEBUG CODE
 pub const DEFAULT_LOG_FILE: &'static str = "esse.log.txt";
