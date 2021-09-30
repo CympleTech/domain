@@ -1,0 +1,5 @@
+/target
+.tdn
+Cargo.lock
+.idea
+.env
