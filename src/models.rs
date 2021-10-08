@@ -91,9 +91,29 @@ impl User {
         Ok(users)
     }
 
+    pub async fn search(base: &PathBuf, name: &str) -> Result<User> {
+        let res = sqlx::query!(
+            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_actived = true AND name = $1",
+            name
+        ).fetch_one(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
+
+        let avatar = read_avatar(base, &res.id).await?;
+
+        Ok(Self {
+            avatar,
+            gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
+            id: res.id,
+            name: res.name,
+            addr: PeerAddr::from_hex(res.addr).unwrap_or(PeerAddr::default()),
+            bio: res.bio,
+            is_actived: res.is_actived,
+            datetime: res.datetime,
+        })
+    }
+
     pub async fn get_by_name(base: &PathBuf, name: &str) -> Result<User> {
         let res = sqlx::query!(
-            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_deleted = false and name = $1",
+            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_deleted = false AND name = $1",
             name
         ).fetch_one(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
 
@@ -189,10 +209,13 @@ impl User {
     }
 
     pub async fn delete(id: &i64, base: &PathBuf) -> Result<()> {
-        let _ = sqlx::query!("UPDATE users SET is_deleted = true WHERE id = $1", id)
-            .execute(get_pool()?)
-            .await
-            .map_err(|_| anyhow!("database failure."))?;
+        let _ = sqlx::query!(
+            "UPDATE users SET is_actived = false, is_deleted = true WHERE id = $1",
+            id
+        )
+        .execute(get_pool()?)
+        .await
+        .map_err(|_| anyhow!("database failure."))?;
 
         let _ = delete_avatar(base, id).await;
 

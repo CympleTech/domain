@@ -63,7 +63,7 @@ impl Layer {
                         println!("------ DEBUG DOMAIN SERVICE IS OK");
                     }
                     PeerEvent::Search(name) => {
-                        if let Ok(user) = User::get_by_name(&self.base, &name).await {
+                        if let Ok(user) = User::search(&self.base, &name).await {
                             add_server_layer(&mut results, addr, user.to_info(), fgid)?;
                         } else {
                             add_server_layer(&mut results, addr, ServerEvent::None(name), fgid)?;
@@ -89,19 +89,33 @@ impl Layer {
                         let user = User::get_by_name(&self.base, &name).await?;
                         if user.gid == fgid {
                             User::active(&user.id, false).await?;
+                            add_server_layer(
+                                &mut results,
+                                addr,
+                                ServerEvent::Actived(name, false),
+                                fgid,
+                            )?;
                         }
                     }
                     PeerEvent::Active(name) => {
                         let user = User::get_by_name(&self.base, &name).await?;
                         if user.gid == fgid {
                             User::active(&user.id, true).await?;
+                            add_server_layer(
+                                &mut results,
+                                addr,
+                                ServerEvent::Actived(name, true),
+                                fgid,
+                            )?;
                         }
                     }
                     PeerEvent::Delete(name) => {
-                        let user = User::get_by_name(&self.base, &name).await?;
-                        if user.gid == fgid {
-                            User::delete(&user.id, &self.base).await?;
+                        if let Ok(user) = User::get_by_name(&self.base, &name).await {
+                            if user.gid == fgid {
+                                User::delete(&user.id, &self.base).await?;
+                            }
                         }
+                        add_server_layer(&mut results, addr, ServerEvent::Deleted(name), fgid)?;
                     }
                     PeerEvent::Request(_name, _rname, _remark) => {}
                 }
