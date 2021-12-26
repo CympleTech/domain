@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tdn::types::{
     group::GroupId,
-    primitive::{PeerAddr, Result},
+    primitive::{PeerId, Result},
     rpc::{json, RpcParam},
 };
 
@@ -19,7 +19,7 @@ pub struct User {
     /// user ID
     pub gid: GroupId,
     /// user network address.
-    addr: PeerAddr,
+    addr: PeerId,
     /// bio.
     bio: String,
     /// avatar.
@@ -31,7 +31,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(name: String, gid: GroupId, addr: PeerAddr, bio: String, avatar: Vec<u8>) -> Self {
+    pub fn new(name: String, gid: GroupId, addr: PeerId, bio: String, avatar: Vec<u8>) -> Self {
         let start = SystemTime::now();
         let datetime = start
             .duration_since(UNIX_EPOCH)
@@ -81,7 +81,7 @@ impl User {
                 avatar,
                 id: res.id,
                 name: res.name,
-                addr: PeerAddr::from_hex(res.addr).unwrap_or(PeerAddr::default()),
+                addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
                 bio: res.bio,
                 is_actived: res.is_actived,
                 datetime: res.datetime,
@@ -104,7 +104,7 @@ impl User {
             gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerAddr::from_hex(res.addr).unwrap_or(PeerAddr::default()),
+            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -124,7 +124,7 @@ impl User {
             gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerAddr::from_hex(res.addr).unwrap_or(PeerAddr::default()),
+            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -144,7 +144,7 @@ impl User {
             gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerAddr::from_hex(res.addr).unwrap_or(PeerAddr::default()),
+            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -179,7 +179,7 @@ impl User {
 
     pub async fn update(
         id: &i64,
-        addr: &PeerAddr,
+        addr: &PeerId,
         bio: &str,
         avatar: &Vec<u8>,
         base: &PathBuf,

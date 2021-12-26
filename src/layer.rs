@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use tdn::types::{
     group::GroupId,
     message::{RecvType, SendType},
-    primitive::{HandleResult, PeerAddr, Result},
+    primitive::{HandleResult, PeerId, Result},
 };
 use tdn_did::Proof;
 
@@ -15,7 +15,7 @@ use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
 #[inline]
 pub(crate) fn add_server_layer(
     results: &mut HandleResult,
-    addr: PeerAddr,
+    addr: PeerId,
     event: ServerEvent,
     tgid: GroupId,
 ) -> Result<()> {

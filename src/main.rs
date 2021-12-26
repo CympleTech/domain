@@ -57,13 +57,17 @@ pub async fn start(db_path: String) -> Result<()> {
     // }
     config.rpc_ws = None;
     config.rpc_addr = DEFAULT_HTTP_ADDR.parse().unwrap();
-    config.p2p_addr = DEFAULT_P2P_ADDR.parse().unwrap();
-    config
-        .p2p_allowlist
-        .append(&mut vec!["1.15.156.199:7364".parse().unwrap()]);
+    config.p2p_peer = Peer::socket(DEFAULT_P2P_ADDR.parse().unwrap());
+    config.p2p_allowlist.append(&mut vec![Peer::socket(
+        "1.15.156.199:7364".parse().unwrap(),
+    )]);
 
     info!("Config RPC HTTP : {:?}", config.rpc_addr);
-    info!("Config P2P      : {:?}", config.p2p_addr);
+    info!(
+        "Config P2P      : {} {:?}",
+        config.p2p_peer.transport.to_str(),
+        config.p2p_peer.socket
+    );
 
     let _rand_secret = config.secret.clone();
 
