@@ -1,12 +1,10 @@
+use domain_types::LayerServerEvent;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tdn::types::{
-    group::GroupId,
-    primitive::{PeerId, Result},
+    primitives::{PeerId, Result},
     rpc::{json, RpcParam},
 };
-
-use domain_types::ServerEvent;
 
 use crate::storage::{delete_avatar, get_pool, read_avatar, write_avatar};
 
@@ -17,9 +15,7 @@ pub struct User {
     /// name.
     name: String,
     /// user ID
-    pub gid: GroupId,
-    /// user network address.
-    addr: PeerId,
+    pub pid: PeerId,
     /// bio.
     bio: String,
     /// avatar.
@@ -31,7 +27,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(name: String, gid: GroupId, addr: PeerId, bio: String, avatar: Vec<u8>) -> Self {
+    pub fn new(name: String, pid: PeerId, bio: String, avatar: Vec<u8>) -> Self {
         let start = SystemTime::now();
         let datetime = start
             .duration_since(UNIX_EPOCH)
@@ -41,8 +37,7 @@ impl User {
         Self {
             datetime,
             name,
-            gid,
-            addr,
+            pid,
             bio,
             avatar,
             is_actived: true,
@@ -54,20 +49,19 @@ impl User {
         json!([
             self.id,
             self.name,
-            self.gid.to_hex(),
-            self.addr.to_hex(),
+            self.pid.to_hex(),
             self.is_actived,
             self.datetime
         ])
     }
 
-    pub fn to_info(self) -> ServerEvent {
-        ServerEvent::Info(self.name, self.gid, self.addr, self.bio, self.avatar)
+    pub fn to_info(self) -> LayerServerEvent {
+        LayerServerEvent::Info(self.pid, self.name, self.bio, self.avatar)
     }
 
     pub async fn list(base: &PathBuf) -> Result<Vec<Self>> {
         let recs = sqlx::query!(
-            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_deleted = false ORDER BY id",
+            "SELECT id, name, pid, bio, is_actived, datetime FROM users WHERE is_deleted = false ORDER BY id",
         )
             .fetch_all(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
 
@@ -77,11 +71,10 @@ impl User {
             let avatar = read_avatar(base, &res.id).await?;
 
             users.push(Self {
-                gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
                 avatar,
                 id: res.id,
                 name: res.name,
-                addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
+                pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
                 bio: res.bio,
                 is_actived: res.is_actived,
                 datetime: res.datetime,
@@ -93,7 +86,7 @@ impl User {
 
     pub async fn search(base: &PathBuf, name: &str) -> Result<User> {
         let res = sqlx::query!(
-            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_actived = true AND name = $1",
+            "SELECT id, name, pid, bio, is_actived, datetime FROM users WHERE is_actived = true AND name = $1",
             name
         ).fetch_one(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
 
@@ -101,10 +94,9 @@ impl User {
 
         Ok(Self {
             avatar,
-            gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
+            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -113,7 +105,7 @@ impl User {
 
     pub async fn get_by_name(base: &PathBuf, name: &str) -> Result<User> {
         let res = sqlx::query!(
-            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_deleted = false AND name = $1",
+            "SELECT id, name, pid, bio, is_actived, datetime FROM users WHERE is_deleted = false AND name = $1",
             name
         ).fetch_one(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
 
@@ -121,10 +113,9 @@ impl User {
 
         Ok(Self {
             avatar,
-            gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
+            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -133,7 +124,7 @@ impl User {
 
     pub async fn _get(base: &PathBuf, id: &i64) -> Result<User> {
         let res = sqlx::query!(
-            "SELECT id, name, gid, addr, bio, is_actived, datetime FROM users WHERE is_deleted = false and id = $1",
+            "SELECT id, name, pid, bio, is_actived, datetime FROM users WHERE is_deleted = false and id = $1",
             id
         ).fetch_one(get_pool()?).await.map_err(|_| anyhow!("database failure."))?;
 
@@ -141,10 +132,9 @@ impl User {
 
         Ok(Self {
             avatar,
-            gid: GroupId::from_hex(res.gid).unwrap_or(GroupId::default()),
             id: res.id,
             name: res.name,
-            addr: PeerId::from_hex(res.addr).unwrap_or(PeerId::default()),
+            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -162,10 +152,9 @@ impl User {
         }
 
         let rec = sqlx::query!(
-            "INSERT INTO users (name, gid, addr, bio, is_actived, datetime) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            "INSERT INTO users (name, pid, bio, is_actived, datetime) VALUES ($1, $2, $3, $4, $5) RETURNING id",
             self.name,
-            self.gid.to_hex(),
-            self.addr.to_hex(),
+            self.pid.to_hex(),
             self.bio,
             self.is_actived,
             self.datetime
@@ -177,22 +166,11 @@ impl User {
         Ok(())
     }
 
-    pub async fn update(
-        id: &i64,
-        addr: &PeerId,
-        bio: &str,
-        avatar: &Vec<u8>,
-        base: &PathBuf,
-    ) -> Result<()> {
-        let _ = sqlx::query!(
-            "UPDATE users SET addr = $1, bio = $2 WHERE id = $3",
-            bio,
-            addr.to_hex(),
-            id
-        )
-        .execute(get_pool()?)
-        .await
-        .map_err(|_| anyhow!("database failure."))?;
+    pub async fn update(id: &i64, bio: &str, avatar: &Vec<u8>, base: &PathBuf) -> Result<()> {
+        let _ = sqlx::query!("UPDATE users SET bio = $1 WHERE id = $2", bio, id)
+            .execute(get_pool()?)
+            .await
+            .map_err(|_| anyhow!("database failure."))?;
 
         let _ = write_avatar(base, id, avatar).await;
 

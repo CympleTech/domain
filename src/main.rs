@@ -9,7 +9,7 @@ use simplelog::{CombinedLogger, Config as LogConfig, LevelFilter};
 use std::env::args;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tdn::{prelude::*, types::primitive::Result};
+use tdn::{prelude::*, types::primitives::Result};
 use tokio::sync::{mpsc::Sender, RwLock};
 
 mod layer;

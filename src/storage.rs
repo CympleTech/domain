@@ -6,7 +6,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Pool, Postgres};
 use std::env;
 use std::path::PathBuf;
-use tdn::types::primitive::Result;
+use tdn::types::primitives::Result;
 use tokio::fs;
 
 #[derive(Debug, Deserialize)]

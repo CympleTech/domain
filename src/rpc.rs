@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tdn::types::{
-    primitive::HandleResult,
+    primitives::HandleResult,
     rpc::{json, RpcHandler},
 };
 use tokio::sync::RwLock;

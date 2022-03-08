@@ -2,11 +2,10 @@ use std::path::PathBuf;
 use tdn::types::{
     group::GroupId,
     message::{RecvType, SendType},
-    primitive::{HandleResult, PeerId, Result},
+    primitives::{HandleResult, PeerId, Result},
 };
-use tdn_did::Proof;
 
-use domain_types::{LayerPeerEvent, LayerServerEvent, PeerEvent, ServerEvent, DOMAIN_ID};
+use domain_types::{LayerPeerEvent, LayerServerEvent, DOMAIN_ID};
 
 use crate::models::User;
 use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
@@ -16,11 +15,10 @@ use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
 pub(crate) fn add_server_layer(
     results: &mut HandleResult,
     addr: PeerId,
-    event: ServerEvent,
+    event: LayerServerEvent,
     tgid: GroupId,
 ) -> Result<()> {
-    let proof = Proof::default();
-    let data = bincode::serialize(&LayerServerEvent(event, proof))?;
+    let data = bincode::serialize(&event)?;
     let s = SendType::Event(0, addr, data);
     results.layers.push((DOMAIN_ID, tgid, s));
     Ok(())
@@ -48,13 +46,13 @@ impl Layer {
             }
             RecvType::Event(addr, bytes) => {
                 // server & client handle it.
-                let LayerPeerEvent(event, _proof) = bincode::deserialize(&bytes)?;
+                let event: LayerPeerEvent = bincode::deserialize(&bytes)?;
 
                 // TODO check proof. date if from fgid.
 
                 match event {
-                    PeerEvent::Check => {
-                        let status = ServerEvent::Status(
+                    LayerPeerEvent::Check => {
+                        let status = LayerServerEvent::Status(
                             DEFAULT_PROVIDER_NAME.to_owned(),
                             DEFAULT_PROVIDER_PROXY,
                         );
@@ -62,62 +60,72 @@ impl Layer {
                         add_server_layer(&mut results, addr, status, fgid)?;
                         println!("------ DEBUG DOMAIN SERVICE IS OK");
                     }
-                    PeerEvent::Search(name) => {
+                    LayerPeerEvent::Search(name) => {
                         if let Ok(user) = User::search(&self.base, &name).await {
                             add_server_layer(&mut results, addr, user.to_info(), fgid)?;
                         } else {
-                            add_server_layer(&mut results, addr, ServerEvent::None(name), fgid)?;
+                            add_server_layer(
+                                &mut results,
+                                addr,
+                                LayerServerEvent::None(name),
+                                fgid,
+                            )?;
                         }
                     }
-                    PeerEvent::Register(name, bio, avatar) => {
-                        let mut user = User::new(name.clone(), fgid, addr, bio, avatar);
+                    LayerPeerEvent::Register(name, bio, avatar) => {
+                        let mut user = User::new(name.clone(), addr, bio, avatar);
                         let is_ok = user.insert(&self.base).await.is_ok();
                         add_server_layer(
                             &mut results,
                             addr,
-                            ServerEvent::Result(name, is_ok),
+                            LayerServerEvent::Result(name, is_ok),
                             fgid,
                         )?;
                     }
-                    PeerEvent::Update(name, bio, avatar) => {
+                    LayerPeerEvent::Update(name, bio, avatar) => {
                         let user = User::get_by_name(&self.base, &name).await?;
-                        if user.gid == fgid {
-                            User::update(&user.id, &addr, &bio, &avatar, &self.base).await?;
+                        if user.pid == addr {
+                            User::update(&user.id, &bio, &avatar, &self.base).await?;
                         }
                     }
-                    PeerEvent::Suspend(name) => {
+                    LayerPeerEvent::Suspend(name) => {
                         let user = User::get_by_name(&self.base, &name).await?;
-                        if user.gid == fgid {
+                        if user.pid == addr {
                             User::active(&user.id, false).await?;
                             add_server_layer(
                                 &mut results,
                                 addr,
-                                ServerEvent::Actived(name, false),
+                                LayerServerEvent::Actived(name, false),
                                 fgid,
                             )?;
                         }
                     }
-                    PeerEvent::Active(name) => {
+                    LayerPeerEvent::Active(name) => {
                         let user = User::get_by_name(&self.base, &name).await?;
-                        if user.gid == fgid {
+                        if user.pid == addr {
                             User::active(&user.id, true).await?;
                             add_server_layer(
                                 &mut results,
                                 addr,
-                                ServerEvent::Actived(name, true),
+                                LayerServerEvent::Actived(name, true),
                                 fgid,
                             )?;
                         }
                     }
-                    PeerEvent::Delete(name) => {
+                    LayerPeerEvent::Delete(name) => {
                         if let Ok(user) = User::get_by_name(&self.base, &name).await {
-                            if user.gid == fgid {
+                            if user.pid == addr {
                                 User::delete(&user.id, &self.base).await?;
                             }
                         }
-                        add_server_layer(&mut results, addr, ServerEvent::Deleted(name), fgid)?;
+                        add_server_layer(
+                            &mut results,
+                            addr,
+                            LayerServerEvent::Deleted(name),
+                            fgid,
+                        )?;
                     }
-                    PeerEvent::Request(_name, _rname, _remark) => {}
+                    LayerPeerEvent::Request(_name, _rname, _remark) => {}
                 }
             }
             RecvType::Delivery(_t, _tid, _is_ok) => {
