@@ -5,7 +5,7 @@ use tdn::types::{
     primitives::{HandleResult, PeerId, Result},
 };
 
-use domain_types::{LayerPeerEvent, LayerServerEvent, DOMAIN_ID};
+use domain_types::{LayerPeerEvent, LayerServerEvent};
 
 use crate::models::User;
 use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
@@ -20,17 +20,19 @@ pub(crate) fn add_server_layer(
 ) -> Result<()> {
     let data = bincode::serialize(&event)?;
     let s = SendType::Event(0, addr, data);
-    results.layers.push((DOMAIN_ID, tgid, s));
+    results.layers.push((tgid, s));
     Ok(())
 }
 
 pub(crate) struct Layer {
     pub base: PathBuf,
+    pub name: String,
+    pub pid: PeerId,
 }
 
 impl Layer {
-    pub(crate) async fn new(base: PathBuf) -> Result<Layer> {
-        Ok(Layer { base })
+    pub(crate) async fn new(base: PathBuf, name: String, pid: PeerId) -> Result<Layer> {
+        Ok(Layer { base, name, pid })
     }
 
     pub(crate) async fn handle(&mut self, fgid: GroupId, msg: RecvType) -> Result<HandleResult> {

@@ -61,6 +61,7 @@ pub async fn start(db_path: String) -> Result<()> {
     config.p2p_allowlist.append(&mut vec![Peer::socket(
         "1.15.156.199:7364".parse().unwrap(),
     )]);
+    config.group_ids = vec![DOMAIN_ID];
 
     info!("Config RPC HTTP : {:?}", config.rpc_addr);
     info!(
@@ -73,14 +74,17 @@ pub async fn start(db_path: String) -> Result<()> {
 
     let (peer_id, sender, mut recver) = start_with_config(config).await.unwrap();
     info!("Network Peer id : {}", peer_id.to_hex());
+    let name = DEFAULT_PROVIDER_NAME.to_owned();
 
-    let layer = Arc::new(RwLock::new(layer::Layer::new(db_path).await?));
+    let layer = Arc::new(RwLock::new(
+        layer::Layer::new(db_path, name, peer_id).await?,
+    ));
 
     let rpc_handler = rpc::new_rpc_handler(layer.clone());
 
     while let Some(message) = recver.recv().await {
         match message {
-            ReceiveMessage::Group(_fgid, _g_msg) => {
+            ReceiveMessage::Group(_g_msg) => {
                 //
             }
             ReceiveMessage::Layer(fgid, tgid, l_msg) => {
@@ -139,9 +143,9 @@ async fn handle(handle_result: HandleResult, uid: u64, sender: &Sender<SendMessa
 
     loop {
         if groups.len() != 0 {
-            let (gid, msg) = groups.remove(0);
+            let msg = groups.remove(0);
             sender
-                .send(SendMessage::Group(gid, msg))
+                .send(SendMessage::Group(msg))
                 .await
                 .expect("TDN channel closed");
         } else {
@@ -151,9 +155,9 @@ async fn handle(handle_result: HandleResult, uid: u64, sender: &Sender<SendMessa
 
     loop {
         if layers.len() != 0 {
-            let (fgid, tgid, msg) = layers.remove(0);
+            let (tgid, msg) = layers.remove(0);
             sender
-                .send(SendMessage::Layer(fgid, tgid, msg))
+                .send(SendMessage::Layer(tgid, msg))
                 .await
                 .expect("TDN channel closed");
         } else {
