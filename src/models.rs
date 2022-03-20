@@ -73,8 +73,8 @@ impl User {
             users.push(Self {
                 avatar,
                 id: res.id,
-                name: res.name,
-                pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
+                name: res.name.trim().to_owned(),
+                pid: PeerId::from_hex(res.pid.trim()).unwrap_or(PeerId::default()),
                 bio: res.bio,
                 is_actived: res.is_actived,
                 datetime: res.datetime,
@@ -95,8 +95,8 @@ impl User {
         Ok(Self {
             avatar,
             id: res.id,
-            name: res.name,
-            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
+            name: res.name.trim().to_owned(),
+            pid: PeerId::from_hex(res.pid.trim()).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -114,8 +114,8 @@ impl User {
         Ok(Self {
             avatar,
             id: res.id,
-            name: res.name,
-            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
+            name: res.name.trim().to_owned(),
+            pid: PeerId::from_hex(res.pid.trim()).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
@@ -133,8 +133,8 @@ impl User {
         Ok(Self {
             avatar,
             id: res.id,
-            name: res.name,
-            pid: PeerId::from_hex(res.pid).unwrap_or(PeerId::default()),
+            name: res.name.trim().to_owned(),
+            pid: PeerId::from_hex(res.pid.trim()).unwrap_or(PeerId::default()),
             bio: res.bio,
             is_actived: res.is_actived,
             datetime: res.datetime,
