@@ -5,11 +5,11 @@ extern crate log;
 extern crate anyhow;
 
 use domain_types::DOMAIN_ID;
+use serde::{Deserialize, Serialize};
 use simplelog::{CombinedLogger, Config as LogConfig, LevelFilter};
-use std::env::args;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{env::args, path::PathBuf, sync::Arc};
 use tdn::{prelude::*, types::primitives::Result};
+use tdn_did::{generate_mnemonic, generate_peer, Count, Language};
 use tokio::sync::{mpsc::Sender, RwLock};
 
 mod layer;
@@ -17,12 +17,36 @@ mod models;
 mod rpc;
 mod storage;
 
-pub const DEFAULT_PROVIDER_NAME: &'static str = "domain.esse";
-pub const DEFAULT_PROVIDER_PROXY: bool = true;
+const DEFAULT_PROVIDER_NAME: &'static str = "domain.esse";
+const DEFAULT_PROVIDER_PROXY: bool = true;
 
-pub const DEFAULT_P2P_ADDR: &'static str = "0.0.0.0:7367"; // DEBUG CODE
-pub const DEFAULT_HTTP_ADDR: &'static str = "127.0.0.1:8003"; // DEBUG CODE
-pub const DEFAULT_LOG_FILE: &'static str = "esse.log.txt";
+const DEFAULT_P2P_ADDR: &'static str = "0.0.0.0:7350";
+const DEFAULT_HTTP_ADDR: &'static str = "127.0.0.1:7351";
+const DEFAULT_LOG_FILE: &'static str = "domain.log.txt";
+
+/// parse custom config from config.toml.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CustomConfig {
+    pub name: String,
+    pub proxy: bool,
+    pub mnemonic: String,
+}
+
+fn custom_config_str(config: &CustomConfig) -> String {
+    format!(
+        r#"## Domain custom Config.
+## domain server name.
+name = "{}"
+
+## domain is support proxy request/response.
+proxy = {}
+
+## domain server default mnemonic words (keep PeerId same).
+mnemonic = "{}"
+"#,
+        config.name, config.proxy, config.mnemonic
+    )
+}
 
 #[tokio::main]
 async fn main() {
@@ -46,22 +70,32 @@ pub async fn start(db_path: String) -> Result<()> {
     init_log(db_path.clone());
     info!("Core storage path {:?}", db_path);
 
-    // let _client = storage::connect_database()?;
-
-    let mut config = Config::load_save(db_path.clone()).await;
+    let mut config = Config::default();
     config.db_path = Some(db_path.clone());
-    // // use self sign to bootstrap peer.
-    // if config.rpc_ws.is_none() {
-    //     // set default ws addr.
-    //     config.rpc_ws = Some(DEFAULT_WS_ADDR.parse().unwrap());
-    // }
-    config.rpc_ws = None;
     config.rpc_addr = DEFAULT_HTTP_ADDR.parse().unwrap();
     config.p2p_peer = Peer::socket(DEFAULT_P2P_ADDR.parse().unwrap());
     config.p2p_allowlist.append(&mut vec![Peer::socket(
         "1.15.156.199:7364".parse().unwrap(),
     )]);
     config.group_ids = vec![DOMAIN_ID];
+    let config = Config::load_save(db_path.clone(), config).await?;
+    let custom: Option<CustomConfig> = Config::load_custom(db_path.clone()).await;
+    let CustomConfig {
+        name,
+        proxy,
+        mnemonic,
+    } = if let Some(custom) = custom {
+        custom
+    } else {
+        let mnemonic = generate_mnemonic(Language::English, Count::Words12);
+        let custom = CustomConfig {
+            name: DEFAULT_PROVIDER_NAME.to_owned(),
+            proxy: DEFAULT_PROVIDER_PROXY,
+            mnemonic: mnemonic,
+        };
+        Config::append_custom(db_path.clone(), &custom_config_str(&custom)).await?;
+        custom
+    };
 
     info!("Config RPC HTTP : {:?}", config.rpc_addr);
     info!(
@@ -71,13 +105,12 @@ pub async fn start(db_path: String) -> Result<()> {
     );
 
     let _rand_secret = config.secret.clone();
-
-    let (peer_id, sender, mut recver) = start_with_config(config).await.unwrap();
+    let pkey = generate_peer(Language::English, &mnemonic, 0, 0, None)?;
+    let (peer_id, sender, mut recver) = start_with_config_and_key(config, pkey).await?;
     info!("Network Peer id : {}", peer_id.to_hex());
-    let name = DEFAULT_PROVIDER_NAME.to_owned();
 
     let layer = Arc::new(RwLock::new(
-        layer::Layer::new(db_path, name, peer_id).await?,
+        layer::Layer::new(db_path, name, peer_id, proxy).await?,
     ));
 
     let rpc_handler = rpc::new_rpc_handler(layer.clone());

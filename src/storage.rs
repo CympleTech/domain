@@ -1,4 +1,3 @@
-use config::Config as CFG;
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
@@ -15,21 +14,10 @@ struct Config {
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self> {
-        let mut cfg = CFG::new();
-
+    pub fn from_env() -> Self {
         // database url.
         let database = env::var("DATABASE_URL").expect("DATABASE_URL missing");
-
-        cfg.set("database", database)
-            .map_err(|_| anyhow!("set config error."))?;
-
-        // others.
-        for (key, value) in env::vars() {
-            cfg.set(&key, value)
-                .map_err(|_| anyhow!("set config error."))?;
-        }
-        cfg.try_into().map_err(|_| anyhow!("config init error."))
+        Config { database }
     }
 }
 
@@ -44,7 +32,7 @@ pub async fn init(base: &PathBuf) -> Result<()> {
     init_local_files(base).await?;
 
     dotenv().ok();
-    let cfg = Config::from_env()?;
+    let cfg = Config::from_env();
 
     let pool = PgPoolOptions::new()
         .max_connections(5)

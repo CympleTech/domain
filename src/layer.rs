@@ -8,7 +8,6 @@ use tdn::types::{
 use domain_types::{LayerPeerEvent, LayerServerEvent};
 
 use crate::models::User;
-use crate::{DEFAULT_PROVIDER_NAME, DEFAULT_PROVIDER_PROXY};
 
 /// Domain server to peer.
 #[inline]
@@ -28,11 +27,22 @@ pub(crate) struct Layer {
     pub base: PathBuf,
     pub name: String,
     pub pid: PeerId,
+    pub proxy: bool,
 }
 
 impl Layer {
-    pub(crate) async fn new(base: PathBuf, name: String, pid: PeerId) -> Result<Layer> {
-        Ok(Layer { base, name, pid })
+    pub(crate) async fn new(
+        base: PathBuf,
+        name: String,
+        pid: PeerId,
+        proxy: bool,
+    ) -> Result<Layer> {
+        Ok(Layer {
+            base,
+            name,
+            pid,
+            proxy,
+        })
     }
 
     pub(crate) async fn handle(&mut self, fgid: GroupId, msg: RecvType) -> Result<HandleResult> {
@@ -54,10 +64,7 @@ impl Layer {
 
                 match event {
                     LayerPeerEvent::Check => {
-                        let status = LayerServerEvent::Status(
-                            DEFAULT_PROVIDER_NAME.to_owned(),
-                            DEFAULT_PROVIDER_PROXY,
-                        );
+                        let status = LayerServerEvent::Status(self.name.clone(), self.proxy);
 
                         add_server_layer(&mut results, addr, status, fgid)?;
                         println!("------ DEBUG DOMAIN SERVICE IS OK");

@@ -20,7 +20,8 @@ pub(crate) fn new_rpc_handler(layer: Arc<RwLock<Layer>>) -> RpcHandler<RpcState>
 
         Ok(HandleResult::rpc(json!({
             "name": layer.name,
-            "peer_id": layer.pid.to_hex()
+            "peer_id": layer.pid.to_hex(),
+            "proxy": layer.proxy,
         })))
     });
 
