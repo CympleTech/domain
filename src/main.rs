@@ -117,8 +117,11 @@ pub async fn start(db_path: String) -> Result<()> {
 
     while let Some(message) = recver.recv().await {
         match message {
+            ReceiveMessage::Own(_o_msg) => {
+                // Self distributed domain service.
+            }
             ReceiveMessage::Group(_g_msg) => {
-                //
+                // Other domain services.
             }
             ReceiveMessage::Layer(fgid, tgid, l_msg) => {
                 if tgid == DOMAIN_ID {
@@ -144,6 +147,7 @@ pub async fn start(db_path: String) -> Result<()> {
 #[inline]
 async fn handle(handle_result: HandleResult, uid: u64, sender: &Sender<SendMessage>) {
     let HandleResult {
+        mut owns,
         mut rpcs,
         mut groups,
         mut layers,
@@ -167,6 +171,18 @@ async fn handle(handle_result: HandleResult, uid: u64, sender: &Sender<SendMessa
             let msg = networks.remove(0);
             sender
                 .send(SendMessage::Network(msg))
+                .await
+                .expect("TDN channel closed");
+        } else {
+            break;
+        }
+    }
+
+    loop {
+        if owns.len() != 0 {
+            let msg = owns.remove(0);
+            sender
+                .send(SendMessage::Own(msg))
                 .await
                 .expect("TDN channel closed");
         } else {
